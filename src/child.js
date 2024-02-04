@@ -37,7 +37,7 @@ child.get("/child/:id", async (req, res) => {
         res.status(500).json({ msg: 'Erro interno ao processar a solicitação' });
     }
 
-    });
+});
 
     
 // Route for all childrens
@@ -103,14 +103,14 @@ child.put('/child/update/:id', async(req, res) => {
   //if(!allergenic){return res.status(422).json({ msg: 'O campo Alergênico deve ser preenchido'})}
   //if(!comments){return res.status(422).json({ msg: 'O campo Observações deve ser preenchido'})}
 
-  // check if user exists
+  // check if children exists
   const childrenExists = await Child.findOne({ personalDocument: personalDocument})
 
   if (personalDocument !== null && personalDocument !== '' && childrenExists && childrenExists._id.toString() !== _id) {
     return res.status(422).json({ msg: 'CPF já cadastrado!'})
   }
 
-  //create user
+  //create children
   const ChildToUpdate = {
       name, sex, classChild, birthDate, photograph, personalDocument, address, addressNumber, addressComplement, addressNeighborhood,
       addressMunicipality, addressZip, addressUF, telephone, responsible1, parentageResponsible1, telephoneResponsible1, responsible2,

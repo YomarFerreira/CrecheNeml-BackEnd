@@ -2,7 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const loginRoutes = require('./src/login');
+const userRoutes = require('./src/user');
 const childRoutes = require('./src/child');
 const photoRoutes = require('./src/photo');
 
@@ -13,7 +13,7 @@ let api = express();
 api.use(cors());
 
 // Rotes
-api.use(loginRoutes);
+api.use(userRoutes);
 api.use(childRoutes);
 api.use(photoRoutes);
 

@@ -9,17 +9,19 @@ const fs = require('fs');
 const cors = require('cors');
 let path = require('path');
 
-let login = express();
+mongoose.set('debug', true);
+
+let user = express();
 
 //Config JSON response
-login.use(express.json());
+user.use(express.json());
 
 //Manage CORS requisition
-login.use(cors());
+user.use(cors());
 
 
 //Config backend for upload files 
-login.use(fileupload({
+user.use(fileupload({
     useTempFiles: true,
     tempFileDir: path.join(__dirname, 'temp')
 }));
@@ -28,12 +30,12 @@ login.use(fileupload({
 const User = require('../models/User')
 
 //Open Route - Public Route 
-login.get('/',(req,res)=>{   
+user.get('/',(req,res)=>{   
   res.status(200).json({ msg: "Bem Vindo a nossa API"})
 });
 
-//Private Route
-login.get("/user/:id", checkToken, async (req, res) => {
+//Private Route for User
+user.get("/userauth/:id", checkToken, async (req, res) => {
 
     const id = req.params.id
 
@@ -73,8 +75,37 @@ function checkToken(req, res, next){
     }
 }
 
+//Route for one user
+user.get("/user/:id", async (req, res) => {
+    const id = req.params.id;
+
+    try {
+        // check if user exists
+        const user = await User.findById(id, '-password');
+
+        if (!user) {
+            return res.status(404).json({ msg: 'Usuário não encontrada!'});
+        }
+        res.status(200).json({ user });
+    }catch (error){
+        console.error("Erro ao obter usuário por ID:", error);
+        res.status(500).json({ msg: 'Erro interno ao processar a solicitação' });
+    }
+});
+
+// Route for all users
+user.get("/users", async (req, res) => {
+    try {
+        const users = await User.find({}, '_id username role');
+        res.status(200).json({ users });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ msg: 'Aconteceu um erro no servidor' });
+    }
+});
+
 //Register User
-login.post('/auth/register', async(req, res) => {
+user.post('/auth/register', async(req, res) => {
     const{username, role, password, confirmPassword} = req.body;
 
     //validations
@@ -126,8 +157,72 @@ login.post('/auth/register', async(req, res) => {
     }
 })
 
+//Update User
+user.put('/auth/update/:id', async(req, res) => {
+    const{_id, username,  password, confirmPassword, role} = req.body;
+
+    if(!role || (role != 'admin' && role != 'user')){
+        return res.status(422).json({ msg: 'Role deve ser preenchida com user ou admin'})
+    }
+
+    if (password !== confirmPassword) {
+        return res.status(422).json({ msg: 'As senhas não conferem!'})
+    }
+
+    try {
+        // check if user exists
+        const existingUser = await User.findById(_id);
+        if (!existingUser) {
+            return res.status(404).json({ msg: 'Usuário não encontrado' });
+        }
+
+        // create user update object
+        const userToUpdate = { username, role };
+
+        // add password to update object only if it is provided
+        if (password) {
+            // create password hash
+            const salt = await bcrypt.genSalt(12);
+            const passwordHash = await bcrypt.hash(password, salt);
+            userToUpdate.password = passwordHash;
+        }
+
+        // update user
+        await User.updateOne({ _id: existingUser._id }, { $set: userToUpdate });
+        res.status(201).json({
+            msg: 'Usuário atualizado com sucesso',
+        });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            msg: 'Aconteceu um erro no servidor',
+        });
+    }
+});
+
+// Delete User
+user.delete('/auth/delete/:id', async (req, res) => {
+    const userId = req.params.id;
+
+    try {
+        // Find and delete usr by Id
+        const deletedUser = await User.findByIdAndDelete(userId);
+
+        if (!deletedUser) {
+            return res.status(404).json({ msg: 'Usuário não encontrado!' });
+        }
+
+        res.status(200).json({ msg: 'Usuário excluído com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao excluir o usuário:', error);
+        res.status(500).json({ msg: 'Erro interno ao processar a solicitação' });
+    }
+});
+
+
+
 //Login User
-login.post('/auth/login', async(req, res) => {
+user.post('/auth/login', async(req, res) => {
     const{username, password} = req.body;
 
     //validations
@@ -159,12 +254,13 @@ login.post('/auth/login', async(req, res) => {
             {
                 id: user._id,
                 role: user.role,
+                username: user.username,
             },
             secret,
         )
         
         res.status(200).json({
-            msg: 'Autenticação realizada com sucesso', token
+            msg: 'Autenticação realizada com sucesso', token,
         })
     }catch(error){
         console.log(error)
@@ -176,4 +272,4 @@ login.post('/auth/login', async(req, res) => {
     }
 });
 
-module.exports = login;
+module.exports = user;
